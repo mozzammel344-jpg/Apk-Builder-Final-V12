@@ -1,0 +1,4 @@
+config.json
+node_modules
+temp_build
+.git

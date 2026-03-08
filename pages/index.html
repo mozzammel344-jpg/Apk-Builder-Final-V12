@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>লুডু </title>
+    <style>
+        :root {
+            --bg: #02020a;
+            --red: #ff4757;
+            --green: #2ed573;
+            --yellow: #ffa502;
+            --blue: #1e90ff;
+            --glass: rgba(255, 255, 255, 0.15);
+            --active-color: var(--red);
+        }
+
+        body {
+            margin: 0; padding: 0;
+            background: var(--bg);
+            /* Dynamic background based on active team */
+            background-image: radial-gradient(circle at center, var(--active-color) -150%, var(--bg) 80%);
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            height: 100vh; width: 100vw;
+            overflow: hidden;
+            font-family: 'Hind Siliguri', 'Segoe UI', sans-serif;
+            color: white;
+            touch-action: none;
+            transition: background 0.8s ease;
+        }
+
+        /* Responsive Container */
+        #ui-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            max-width: 100vw;
+        }
+
+        .screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 100; backdrop-filter: blur(20px);
+            background: rgba(0,0,0,0.8);
+        }
+
+        #loading-screen { display: flex; background: var(--bg); z-index: 200; }
+        .loader {
+            width: 60px; height: 60px;
+            border: 4px solid var(--glass);
+            border-top-color: var(--red);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        #menu-screen { display: none; }
+        .logo { font-size: clamp(2rem, 10vw, 4rem); font-weight: 900; letter-spacing: -1px; margin-bottom: 30px; text-align: center; }
+        .logo span:nth-child(1) { color: var(--red); }
+        .logo span:nth-child(2) { color: var(--blue); }
+        .logo span:nth-child(3) { color: var(--yellow); }
+        .logo span:nth-child(4) { color: var(--green); }
+
+        .menu-btns { display: flex; flex-direction: column; gap: 15px; width: 85%; max-width: 320px; }
+        .menu-btn {
+            padding: 18px; font-size: 1.2rem; font-weight: 700;
+            border-radius: 15px; border: 1px solid rgba(255,255,255,0.2);
+            background: var(--glass); color: white; cursor: pointer;
+            transition: all 0.3s; text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .menu-btn:active { transform: scale(0.95); }
+        .menu-btn.ai-btn { background: linear-gradient(135deg, #6366f1, #a855f7); border: none; }
+
+        #selection-screen { display: none; }
+        .selection-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
+        .color-card {
+            width: 110px; height: 110px; border-radius: 25px; cursor: pointer;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-weight: 900; transition: transform 0.2s; border: 4px solid rgba(255,255,255,0.2);
+            font-size: 1.2rem;
+        }
+
+        #game-container {
+            position: relative;
+            width: 92vmin; height: 92vmin;
+            max-width: 550px; max-height: 550px;
+            display: none;
+            margin: 20px 0;
+        }
+
+        canvas {
+            width: 100%; height: 100%;
+            background: #fff;
+            border-radius: 15px;
+            display: block;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.6);
+        }
+
+        /* Fixed Square Dice Frames */
+        .dice-ui {
+            position: absolute; 
+            width: 65px; height: 65px; 
+            border-radius: 16px; 
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 10; 
+            border: 3px solid rgba(255,255,255,0.4);
+            cursor: pointer;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+        }
+
+        #dice-red { bottom: -15px; left: -15px; background: var(--red); }
+        #dice-blue { top: -15px; left: -15px; background: var(--blue); }
+        #dice-green { top: -15px; right: -15px; background: var(--green); }
+        #dice-yellow { bottom: -15px; right: -15px; background: var(--yellow); }
+
+        /* Mobile Dice Adjustment */
+        @media (max-width: 600px) {
+            .dice-ui { width: 55px; height: 55px; border-radius: 12px; }
+            #dice-red { bottom: -70px; left: 5%; }
+            #dice-yellow { bottom: -70px; right: 5%; }
+            #dice-blue { top: -70px; left: 5%; }
+            #dice-green { top: -70px; right: 5%; }
+            #game-container { margin: 80px 0; }
+        }
+
+        .dice-box {
+            width: 40px; height: 40px; 
+            background: #fff; 
+            border-radius: 8px;
+            display: grid; 
+            grid-template-columns: repeat(3, 1fr); 
+            grid-template-rows: repeat(3, 1fr); 
+            padding: 4px;
+        }
+        .dot { background: #1a1a1a; border-radius: 50%; width: 80%; height: 80%; margin: auto; }
+
+        .active { transform: scale(1.25); border-color: #fff; z-index: 20; box-shadow: 0 0 30px rgba(255,255,255,0.6); }
+        .dim { opacity: 0.25; pointer-events: none; filter: grayscale(0.8); transform: scale(0.9); }
+        
+        #msg { 
+            position: fixed; top: 25px; 
+            font-weight: 900; font-size: 1.5rem; 
+            text-align: center; width: 100%; 
+            z-index: 50; text-transform: uppercase; 
+            text-shadow: 0 3px 6px rgba(0,0,0,0.8);
+            letter-spacing: 1px;
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <div id="loading-screen" class="screen">
+        <div class="loader"></div>
+        <h2 style="margin-top: 20px; letter-spacing: 2px;">লোড হচ্ছে...</h2>
+    </div>
+
+    <div id="menu-screen" class="screen">
+        <div class="logo">
+            <span>লু</span><span>ডু</span> <span></span>
+            <div style="font-size: 0.4em; letter-spacing: 4px; margin-top: 5px; color: #aaa;">পরিবার</div>
+        </div>
+        <div class="menu-btns">
+            <div class="menu-btn" onclick="game.start(2)">২ জন খেলোয়াড়</div>
+            <div class="menu-btn" onclick="game.start(3)">৩ জন খেলোয়াড়</div>
+            <div class="menu-btn" onclick="game.start(4)">৪ জন খেলোয়াড়</div>
+            <div class="menu-btn ai-btn" onclick="game.showSelection()">কম্পিউটারের সাথে খেলুন</div>
+        </div>
+    </div>
+
+    <div id="selection-screen" class="screen">
+        <h2 style="margin-bottom: 30px;">আপনার রং বেছে নিন</h2>
+        <div class="selection-grid">
+            <div class="color-card" style="background: var(--red)" onclick="game.startAI('red')">লাল</div>
+            <div class="color-card" style="background: var(--green)" onclick="game.startAI('green')">সবুজ</div>
+            <div class="color-card" style="background: var(--blue)" onclick="game.startAI('blue')">নীল</div>
+            <div class="color-card" style="background: var(--yellow)" onclick="game.startAI('yellow')">হলুদ</div>
+        </div>
+    </div>
+
+    <div id="msg"></div>
+
+    <div id="ui-wrapper">
+        <div id="game-container">
+            <canvas id="ludoCanvas"></canvas>
+            <div id="dice-red" class="dice-ui" onclick="game.handleDice('red')"><div class="dice-box"></div></div>
+            <div id="dice-green" class="dice-ui" onclick="game.handleDice('green')"><div class="dice-box"></div></div>
+            <div id="dice-yellow" class="dice-ui" onclick="game.handleDice('yellow')"><div class="dice-box"></div></div>
+            <div id="dice-blue" class="dice-ui" onclick="game.handleDice('blue')"><div class="dice-box"></div></div>
+        </div>
+    </div>
+
+    <div id="win-overlay" class="screen">
+        <div id="win-box" style="text-align: center; width: 90%;">
+            <h1 id="winner-name" style="font-size: 3rem;">লাল জিতেছে!</h1>
+            <button class="menu-btn" style="width: 220px; margin-top: 20px;" onclick="location.reload()">আবার খেলুন</button>
+        </div>
+    </div>
+
+    <script>
+        const BN_NAMES = { red: 'লাল', green: 'সবুজ', yellow: 'হলুদ', blue: 'নীল' };
+
+        const Sfx = {
+            ctx: null,
+            init() { if(!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); },
+            play(freq, type, dur, vol = 0.1) {
+                if(!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + dur);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(); osc.stop(this.ctx.currentTime + dur);
+            },
+            roll() { this.play(200 + Math.random()*100, 'square', 0.1, 0.03); },
+            move() { this.play(500, 'sine', 0.1, 0.08); },
+            eat() { this.play(150, 'sawtooth', 0.4, 0.1); },
+            win() { [523, 659, 783, 1046].forEach((f, i) => setTimeout(() => this.play(f, 'triangle', 0.5, 0.1), i * 150)); }
+        };
+
+        const COLORS = {
+            red: { m: '#ff4757', spawnIdx: 1 },
+            green: { m: '#2ed573', spawnIdx: 27 },
+            yellow: { m: '#ffa502', spawnIdx: 40 },
+            blue: { m: '#1e90ff', spawnIdx: 14 }
+        };
+
+        const CIRCUIT = [[6,14],[6,13],[6,12],[6,11],[6,10],[6,9],[5,8],[4,8],[3,8],[2,8],[1,8],[0,8],[0,7],[0,6],[1,6],[2,6],[3,6],[4,6],[5,6],[6,5],[6,4],[6,3],[6,2],[6,1],[6,0],[7,0],[8,0],[8,1],[8,2],[8,3],[8,4],[8,5],[9,6],[10,6],[11,6],[12,6],[13,6],[14,6],[14,7],[14,8],[13,8],[12,8],[11,8],[10,8],[9,8],[8,9],[8,10],[8,11],[8,12],[8,13],[8,14],[7,14]];
+        const STAR_TILES = ["6,12", "8,2", "12,8", "2,6", "6,1", "1,8", "8,13", "13,6"];
+        const SPAWN_TILES = { red: "6,13", green: "8,1", yellow: "13,8", blue: "1,6" };
+
+        class Ludo {
+            constructor() {
+                this.turn = 0;
+                this.dice = 1;
+                this.activeTeams = [];
+                this.isRolling = false;
+                this.isMoving = false;
+                this.isGameOver = false;
+                this.isAIMode = false;
+                this.playerTeam = 'red';
+                this.tokens = {};
+                this.paths = {};
+                
+                this.images = { red: new Image(), green: new Image(), blue: new Image(), yellow: new Image(), bot: new Image() };
+                this.images.red.src = 'https://i.postimg.cc/FzzGgfpw/P1.png';
+                this.images.green.src = 'https://i.postimg.cc/kXkwKgSn/P2.jpg';
+                this.images.blue.src = 'https://i.postimg.cc/QMDbYYSP/P3.png';
+                this.images.yellow.src = 'https://i.postimg.cc/jj68sYLt/P4.png';
+                this.images.bot.src = 'https://cdn-icons-png.flaticon.com/512/4712/4712035.png';
+
+                this.bases = {
+                    red: [[1.5,10.5], [3.5,10.5], [1.5,12.5], [3.5,12.5]],
+                    green: [[10.5,1.5], [12.5,1.5], [10.5,3.5], [12.5,3.5]],
+                    yellow: [[10.5,10.5], [12.5,10.5], [10.5,12.5], [12.5,12.5]],
+                    blue: [[1.5,1.5], [3.5,1.5], [1.5,3.5], [3.5,3.5]]
+                };
+
+                window.onload = () => {
+                    document.getElementById('loading-screen').style.display = 'none';
+                    document.getElementById('menu-screen').style.display = 'flex';
+                };
+            }
+
+            showSelection() {
+                document.getElementById('menu-screen').style.display = 'none';
+                document.getElementById('selection-screen').style.display = 'flex';
+            }
+
+            startAI(color) {
+                this.isAIMode = true;
+                this.playerTeam = color;
+                this.start(4);
+                document.getElementById('selection-screen').style.display = 'none';
+            }
+
+            start(count) {
+                Sfx.init();
+                const config = { 2: ['red', 'green'], 3: ['red', 'green', 'blue'], 4: ['red', 'green', 'yellow', 'blue'] };
+                this.activeTeams = config[count];
+                this.tokens = {};
+                this.paths = {};
+                
+                this.activeTeams.forEach(t => {
+                    this.tokens[t] = Array.from({length:4}, () => ({p:-1, x:0, y:0, stackOffset: {x:0, y:0}}));
+                    const homeLane = {
+                        red: [[7,13],[7,12],[7,11],[7,10],[7,9],[7,8]],
+                        green: [[7,1],[7,2],[7,3],[7,4],[7,5],[7,6]],
+                        yellow: [[13,7],[12,7],[11,7],[10,7],[9,7],[8,7]],
+                        blue: [[1,7],[2,7],[3,7],[4,7],[5,7],[6,7]]
+                    }[t];
+                    const startIdx = COLORS[t].spawnIdx;
+                    let p = [];
+                    for(let i=0; i<51; i++) p.push(CIRCUIT[(startIdx+i)%CIRCUIT.length]);
+                    this.paths[t] = p.concat(homeLane).concat([[7,7]]);
+                });
+
+                document.getElementById('menu-screen').style.display = 'none';
+                document.getElementById('game-container').style.display = 'block';
+                this.resize();
+                this.turn = 0;
+                this.updateUI();
+                this.renderLoop();
+                window.addEventListener('resize', () => this.resize());
+                
+                const canvas = document.getElementById('ludoCanvas');
+                canvas.addEventListener('mousedown', e => this.handleClick(e));
+                canvas.addEventListener('touchstart', e => { e.preventDefault(); this.handleClick(e.touches[0]); });
+            }
+
+            resize() {
+                const canvas = document.getElementById('ludoCanvas');
+                const s = Math.min(window.innerWidth * 0.92, window.innerHeight * 0.7, 550);
+                canvas.width = s * 2; canvas.height = s * 2;
+                this.cell = canvas.width / 15;
+            }
+
+            updateUI() {
+                const team = this.activeTeams[this.turn];
+                
+                // Update dynamic background color
+                document.documentElement.style.setProperty('--active-color', COLORS[team].m);
+
+                document.querySelectorAll('.dice-ui').forEach(el => {
+                    const id = el.id.split('-')[1];
+                    if(!this.activeTeams.includes(id)) el.style.display = 'none';
+                    else {
+                        el.style.display = 'flex';
+                        el.className = `dice-ui ${id === team ? 'active' : 'dim'}`;
+                        this.drawDiceUI(id, id === team ? this.dice : 1);
+                    }
+                });
+
+                const msg = document.getElementById('msg');
+                const isBot = this.isAIMode && team !== this.playerTeam;
+                msg.innerText = `${BN_NAMES[team]}${isBot ? ' (বট)' : ''} এর চাল`;
+                msg.style.color = COLORS[team].m;
+
+                if(isBot && !this.isGameOver) {
+                    setTimeout(() => this.handleDice(team), 1000);
+                }
+            }
+
+            handleDice(color) {
+                if(this.isRolling || this.isMoving || this.isGameOver || color !== this.activeTeams[this.turn]) return;
+                this.isRolling = true;
+                let steps = 0;
+                const itv = setInterval(() => {
+                    this.dice = Math.floor(Math.random()*6)+1;
+                    this.drawDiceUI(color, this.dice);
+                    Sfx.roll();
+                    if(++steps > 8) {
+                        clearInterval(itv);
+                        this.isRolling = false;
+                        this.processTurn();
+                    }
+                }, 60);
+            }
+
+            drawDiceUI(color, val) {
+                const box = document.querySelector(`#dice-${color} .dice-box`);
+                if(!box) return;
+                box.innerHTML = '';
+                const map = {1:[4], 2:[0,8], 3:[0,4,8], 4:[0,2,6,8], 5:[0,2,4,6,8], 6:[0,2,3,5,6,8]};
+                for(let i=0; i<9; i++) {
+                    const d = document.createElement('div');
+                    if(map[val]?.includes(i)) d.className = 'dot';
+                    box.appendChild(d);
+                }
+            }
+
+            processTurn() {
+                const team = this.activeTeams[this.turn];
+                const legals = this.tokens[team].map((_,i) => this.isLegal(team, i) ? i : -1).filter(v => v !== -1);
+                if(legals.length === 0) setTimeout(() => this.nextTurn(), 800);
+                else {
+                    if(this.isAIMode && team !== this.playerTeam) setTimeout(() => this.makeBotMove(team, legals), 600);
+                    else this.isMoving = true;
+                }
+            }
+
+            makeBotMove(team, legals) {
+                let bestIdx = legals[0];
+                legals.forEach(idx => {
+                    if (this.tokens[team][idx].p === -1) bestIdx = idx;
+                    else if (this.tokens[team][idx].p > this.tokens[team][bestIdx].p) bestIdx = idx;
+                });
+                this.animateMove(team, bestIdx);
+            }
+
+            isLegal(team, i) {
+                const p = this.tokens[team][i].p;
+                if(p === -1) return this.dice === 6;
+                return p + this.dice <= 57;
+            }
+
+            handleClick(pointer) {
+                if(!this.isMoving) return;
+                const canvas = document.getElementById('ludoCanvas');
+                const rect = canvas.getBoundingClientRect();
+                const x = (pointer.clientX - rect.left) * (canvas.width / rect.width) / this.cell;
+                const y = (pointer.clientY - rect.top) * (canvas.height / rect.height) / this.cell;
+                const team = this.activeTeams[this.turn];
+                for(let i=0; i<4; i++) {
+                    const tok = this.tokens[team][i];
+                    const tx = tok.p === -1 ? this.bases[team][i][0] : this.paths[team][tok.p][0];
+                    const ty = tok.p === -1 ? this.bases[team][i][1] : this.paths[team][tok.p][1];
+                    if(Math.abs(x - (tx+0.5)) < 0.8 && Math.abs(y - (ty+0.5)) < 0.8 && this.isLegal(team, i)) {
+                        this.animateMove(team, i);
+                        return;
+                    }
+                }
+            }
+
+            async animateMove(team, i) {
+                this.isMoving = false;
+                const tok = this.tokens[team][i];
+                if(tok.p === -1) { tok.p = 0; Sfx.move(); }
+                else {
+                    const target = tok.p + this.dice;
+                    while(tok.p < target) {
+                        tok.p++; Sfx.move();
+                        await new Promise(r => setTimeout(r, 120));
+                    }
+                }
+                this.updateStacking();
+                const eaten = this.checkCapture(team, i);
+                if(this.tokens[team].every(t => t.p >= 57)) { this.victory(team); return; }
+                if(eaten || this.dice === 6) this.updateUI();
+                else this.nextTurn();
+            }
+
+            updateStacking() {
+                const tileMap = {};
+                this.activeTeams.forEach(t => {
+                    this.tokens[t].forEach(tok => {
+                        if(tok.p === -1) { tok.stackOffset = {x:0, y:0}; return; }
+                        const posKey = this.paths[t][tok.p].join(',');
+                        if(!tileMap[posKey]) tileMap[posKey] = [];
+                        tileMap[posKey].push(tok);
+                    });
+                });
+                Object.values(tileMap).forEach(list => {
+                    if (list.length === 1) list[0].stackOffset = {x:0, y:0};
+                    else {
+                        list.forEach((tok, i) => {
+                            const angle = (i / list.length) * Math.PI * 2;
+                            const dist = 0.15;
+                            tok.stackOffset = { x: Math.cos(angle) * dist, y: Math.sin(angle) * dist };
+                        });
+                    }
+                });
+            }
+
+            checkCapture(team, i) {
+                const p = this.tokens[team][i].p;
+                if(p === -1 || p >= 51) return false;
+                const pos = this.paths[team][p];
+                const posStr = pos.join(',');
+                if(STAR_TILES.includes(posStr) || Object.values(SPAWN_TILES).includes(posStr)) return false;
+                
+                let killed = false;
+                this.activeTeams.forEach(t => {
+                    if(t === team) return;
+                    this.tokens[t].forEach(other => {
+                        if(other.p !== -1 && other.p < 51) {
+                            const oPos = this.paths[t][other.p];
+                            if(oPos[0] === pos[0] && oPos[1] === pos[1]) { other.p = -1; killed = true; }
+                        }
+                    });
+                });
+                if(killed) { Sfx.eat(); this.updateStacking(); }
+                return killed;
+            }
+
+            victory(team) {
+                this.isGameOver = true;
+                const overlay = document.getElementById('win-overlay');
+                const name = document.getElementById('winner-name');
+                name.innerText = BN_NAMES[team] + " জিতেছে!";
+                name.style.color = COLORS[team].m;
+                overlay.style.display = 'flex';
+                Sfx.win();
+            }
+
+            nextTurn() {
+                this.turn = (this.turn + 1) % this.activeTeams.length;
+                this.updateUI();
+                this.isMoving = false;
+            }
+
+            renderLoop() {
+                this.activeTeams.forEach(t => {
+                    this.tokens[t].forEach((tok, i) => {
+                        const targetPos = tok.p === -1 ? this.bases[t][i] : this.paths[t][tok.p];
+                        tok.x += (targetPos[0] + tok.stackOffset.x - tok.x) * 0.22;
+                        tok.y += (targetPos[1] + tok.stackOffset.y - tok.y) * 0.22;
+                    });
+                });
+                this.draw();
+                if(!this.isGameOver) requestAnimationFrame(() => this.renderLoop());
+            }
+
+            draw() {
+                const ctx = document.getElementById('ludoCanvas').getContext('2d');
+                ctx.clearRect(0,0, ctx.canvas.width, ctx.canvas.height);
+                this.drawBoard(ctx);
+                this.activeTeams.forEach(t => {
+                    this.tokens[t].forEach((tok, i) => {
+                        this.drawToken(ctx, tok.x+0.5, tok.y+0.5, t, this.isMoving && this.activeTeams[this.turn] === t && this.isLegal(t, i), this.isAIMode && t !== this.playerTeam);
+                    });
+                });
+            }
+
+            drawBoard(ctx) {
+                const c = this.cell;
+                ctx.lineWidth = 1; ctx.strokeStyle = '#eee';
+                const drawBase = (x,y,team) => {
+                    ctx.fillStyle = COLORS[team].m; ctx.fillRect(x*c,y*c,6*c,6*c);
+                    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+                    ctx.beginPath(); ctx.arc((x+3)*c, (y+3)*c, 2.2*c, 0, Math.PI*2); ctx.fill();
+                };
+                drawBase(0,9,'red'); drawBase(9,0,'green'); drawBase(9,9,'yellow'); drawBase(0,0,'blue');
+
+                for(let i=0; i<15; i++) {
+                    for(let j=0; j<15; j++) {
+                        if((i<6&&j<6)||(i>8&&j<6)||(i>8&&j>8)||(i<6&&j>8)) continue;
+                        if(i>=6&&i<=8&&j>=6&&j<=8) continue;
+                        ctx.fillStyle = '#fff'; ctx.fillRect(i*c,j*c,c,c); ctx.strokeRect(i*c,j*c,c,c);
+                        
+                        if(i===7 && j>8 && j<14) this.tile(ctx,i,j,COLORS.red.m);
+                        if(i===7 && j>0 && j<6) this.tile(ctx,i,j,COLORS.green.m);
+                        if(j===7 && i>8 && i<14) this.tile(ctx,i,j,COLORS.yellow.m);
+                        if(j===7 && i>0 && i<6) this.tile(ctx,i,j,COLORS.blue.m);
+
+                        if(i===6 && j===13) this.drawStarTile(ctx,i,j,COLORS.red.m, true);
+                        else if(i===8 && j===1) this.drawStarTile(ctx,i,j,COLORS.green.m, true);
+                        else if(i===13 && j===8) this.drawStarTile(ctx,i,j,COLORS.yellow.m, true);
+                        else if(i===1 && j===6) this.drawStarTile(ctx,i,j,COLORS.blue.m, true);
+                        else if(STAR_TILES.includes(`${i},${j}`)) this.drawStarTile(ctx,i,j,'#f8f8f8', false);
+                    }
+                }
+                const mid = 7.5*c;
+                [[6,9, 9,9, COLORS.red.m], [6,6, 9,6, COLORS.green.m], [9,6, 9,9, COLORS.yellow.m], [6,6, 6,9, COLORS.blue.m]].forEach(t => {
+                    ctx.beginPath(); ctx.moveTo(t[0]*c, t[1]*c); ctx.lineTo(mid,mid); ctx.lineTo(t[2]*c, t[3]*c);
+                    ctx.fillStyle = t[4]; ctx.fill(); ctx.stroke();
+                });
+            }
+
+            drawStarTile(ctx, x, y, color, isColored) {
+                const c = this.cell;
+                ctx.fillStyle = color; ctx.fillRect(x*c, y*c, c, c); ctx.strokeRect(x*c, y*c, c, c);
+                ctx.fillStyle = isColored ? 'rgba(255,255,255,0.8)' : '#ccc';
+                ctx.font = `bold ${c*0.8}px Arial`; ctx.textAlign='center';
+                ctx.fillText('★', (x+0.5)*c, (y+0.8)*c);
+            }
+
+            tile(ctx,x,y,color) { 
+                ctx.fillStyle = color; ctx.fillRect(x*this.cell, y*this.cell, this.cell, this.cell); 
+                ctx.strokeRect(x*this.cell, y*this.cell, this.cell, this.cell); 
+            }
+
+            drawToken(ctx,x,y,team,active, isBot) {
+                const px = x*this.cell, py = y*this.cell, r = this.cell*0.42;
+                ctx.save();
+                if(active) {
+                    const s = 1 + Math.sin(Date.now()/150)*0.1;
+                    ctx.translate(px,py); ctx.scale(s,s); ctx.translate(-px,-py);
+                }
+                ctx.beginPath(); ctx.arc(px, py, r + 2, 0, Math.PI * 2);
+                ctx.fillStyle = '#000'; ctx.fill();
+                ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2);
+                ctx.fillStyle = isBot ? COLORS[team].m : '#fff'; ctx.fill();
+                ctx.strokeStyle = isBot ? '#000' : COLORS[team].m; ctx.lineWidth = 2.5; ctx.stroke();
+                ctx.beginPath(); ctx.arc(px, py, r - 1.5, 0, Math.PI * 2); ctx.clip();
+                const img = isBot ? this.images.bot : this.images[team];
+                if(img.complete && img.naturalHeight !== 0) {
+                    if(isBot) { ctx.globalAlpha = 0.9; ctx.drawImage(img, px - r*0.7, py - r*0.7, r * 1.4, r * 1.4); }
+                    else ctx.drawImage(img, px - r, py - r, r * 2, r * 2);
+                } else {
+                    ctx.fillStyle = isBot ? "black" : COLORS[team].m;
+                    ctx.font = "bold 14px Hind Siliguri"; ctx.textAlign = "center";
+                    ctx.fillText(isBot ? "AI" : team[0].toUpperCase(), px, py + 5);
+                }
+                ctx.restore();
+            }
+        }
+        const game = new Ludo();
+    </script>
+</body>
+</html>
